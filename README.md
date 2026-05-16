@@ -1,6 +1,3 @@
-vim 입력 테스트
-vim 입력 테스트
-vim 입력 테스트
-vim 입력 테스트
-vim 입력 테스트
+# KTB4 과제 제출용
+- 1주차 cli 만들어보기 quote_dispenser
 
