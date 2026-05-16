@@ -1,6 +1,4 @@
 import random	#draw_quote_cards
-
-
 class QuoteCard:	#명언 카드 하나
 	def __init__(self, 
 			  idx: int = 9999, 
@@ -21,24 +19,36 @@ class QuoteCard:	#명언 카드 하나
 		self.registered_by = registered_by
 	
 	def __str__(self):
-		tag_str=""
-		for b in self.tags:
-			tag_str+=f"#{b} "
+		lang_mode="kor"	#크게 표시되는 메인 언어 설정, 한쪽이 없으면 다른쪽으로
+		if not self.content["kor"]:
+			lang_mode="eng"
+		elif not self.content["eng"]:
+			lang_mode="kor"
 
-		return f"""
-		># {self.content["kor"]}
-		>*- {self.author}*<br>
-		>{self.content["eng"]}<br>
+		with open("./template_user_default.md", "r") as template:
+			t=template.read()
+			if lang_mode=="kor":
+				return t.format(
+				main=self.content["kor"],
+				sub=self.content["eng"],
+				author=self.author,
+				tags=" ".join([f"#{b}" for b in self.tags]),
+				view=self.view,
+				favorite=self.favorite,
+				registered_by=self.registered_by
+				)
+			
+			if lang_mode=="eng":
+				return t.format(
+				main=self.content["eng"],
+				sub=self.content["kor"],
+				author=self.author,
+				tags=" ".join([f"#{b}" for b in self.tags]),
+				view=self.view,
+				favorite=self.favorite,
+				registered_by=self.registered_by
+				)
 
-		<small>
-		{tag_str}<br>
-		조회수: {self.view}<br>
-		즐겨찾기: {self.favorite}<br>
-		등록자: {self.registered_by} 
-		</small>
-
-		---
-		"""
 
 class Dispenser:
 	def __init__(self, filepath:str="./catalog.md", quote_cards: list = None):
