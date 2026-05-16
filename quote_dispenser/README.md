@@ -3,11 +3,11 @@
 # How to use
 
   ```
-	python3 cli.py   :랜덤 명언카드 하나 뽑기
-	python3 cli.py n :n개 뽑기                    
-	python3 cli.py --idx idx :인덱스로 명어카드 찾기
-	python3 cli.py --all :전체 카탈로그 보기
-	python3 cli.py --help    :도움말 출력
+	python3 cli.py   			:랜덤 명언카드 하나 뽑기
+	python3 cli.py n 			:n개 뽑기                    
+	python3 cli.py --idx idx 	:인덱스로 명어카드 찾기
+	python3 cli.py --all 		:전체 카탈로그 보기
+	python3 cli.py --help    	:도움말 출력
   ```
 
 # 개발 로드맵
@@ -108,6 +108,14 @@
 ---
 
 # 어떻게 구현?
+```
+quote_dispenser/
+├── cli.py          	   # 실행 파일(CLI)
+├── base.py				   # 명언, 디스팬서 클래스
+├── catalog.md			   # 전체 명언 모음
+├── template.md			   # 데이터 저장용 빈 템플릿
+└── requirements.txt	   # 출력용 템플릿
+```
 
 - Template.md과 같은 형식을 기준으로 파싱 규칙 구축
 	- 유저가 수정할 수 있는 Template_user.md와 분리(출력용) 
