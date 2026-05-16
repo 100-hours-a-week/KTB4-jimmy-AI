@@ -153,3 +153,8 @@
 - quotes.md 파일을 Template.md 형식을 기준으로 작성
 - base.py에서 기본 class들, Template.md 형식을 기준으로 읽기
 - cli에서 마크다운의 명언 읽어오기(cli)
+- 변수명
+	- 전체 카드 목록은 catalog
+	- 플레이리스트는 deck
+	- 카드 하나는 quotecard
+	- dispenser이 다루는 카드들은 quotecards
