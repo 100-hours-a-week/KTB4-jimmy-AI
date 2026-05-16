@@ -1,0 +1,10 @@
+---
+idx: 
+kor: 
+eng: 
+author: 
+tags: 
+view: 
+favorite: 
+registered_by: 
+---

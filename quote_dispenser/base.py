@@ -1,3 +1,6 @@
+import random	#draw_quote_cards
+
+
 class QuoteCard:	#명언 카드 하나
 	def __init__(self, 
 			  idx_q: int = 9999, 
@@ -17,12 +20,11 @@ class QuoteCard:	#명언 카드 하나
 			self.content = {"kor": None, "eng": None}
 		self.registered_by = registered_by
 
-import random
 class Dispenser:
 	def __init__(self, filepath:str, quote_cards: list = None):
 		self.quote_cards = quote_cards
 		if self.quote_cards is None:
-			self.quote_cards = self.load_quote_cards(self.filepath)
+			self.quote_cards = self.load_quote_cards(filepath)
 
 	def load_quote_cards(self,
 					  filepath: str
@@ -52,5 +54,5 @@ class Dispenser:
 			if quote_card.idx_q == idx_q:
 				return quote_card
 		
-		
+
 		return None

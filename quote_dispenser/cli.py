@@ -1,4 +1,4 @@
 import base
 
-test=base.Quote()
-print(test.fetch())
+test=base.QuoteCard()
+print(test.content["eng"])
