@@ -3,6 +3,8 @@ import argparse
 
 d=base.Dispenser()
 
+
+
 parser = argparse.ArgumentParser(
                     prog='Quote Dispenser',
                     description='Can draw quotes',
@@ -17,4 +19,15 @@ parser = argparse.ArgumentParser(
 parser.add_argument('n', nargs='?', default=1, type=int)
 parser.add_argument('--idx', type=int)
 parser.add_argument('--all', action='store_true')
-parser.add_argument('--help', action='store_true')
+
+args=parser.parse_args()
+
+if args.idx:
+    print(d.search_quote_card(args.idx))
+elif args.all:
+    for i in d.quote_cards:
+        print(i)
+else:
+    for i in range(args.n):
+        print(d.draw_quote_card())
+
