@@ -1,4 +1,4 @@
 import base
 
-test=base.quote()
+test=base.Quote()
 print(test.fetch())
