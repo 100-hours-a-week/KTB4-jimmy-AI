@@ -4,21 +4,41 @@ import random	#draw_quote_cards
 class QuoteCard:	#명언 카드 하나
 	def __init__(self, 
 			  idx: int = 9999, 
-			  tag: list = None, 
+			  tags: list = None, 
 			  author: str = None, 
-			  #view: int = 0,
-			  #favorite: bool = False,
+			  view: int = 0,
+			  favorite: bool = False,
 			  content: dict = None,
 			  registered_by: str = "admin"):
 		self.idx = idx
-		self.tag = tag
+		self.tags = tags
 		self.author = author
-		#self.view = view
-		#self.favorite = favorite	
+		self.view = view
+		self.favorite = favorite	
 		self.content = content
 		if self.content is None:
 			self.content = {"kor": None, "eng": None}
 		self.registered_by = registered_by
+	
+	def __str__(self):
+		tag_str=""
+		for b in self.tags:
+			tag_str+=f"#{b} "
+
+		return f"""
+		># {self.content["kor"]}
+		>*- {self.author}*<br>
+		>{self.content["eng"]}<br>
+
+		<small>
+		{tag_str}<br>
+		조회수: {self.view}<br>
+		즐겨찾기: {self.favorite}<br>
+		등록자: {self.registered_by} 
+		</small>
+
+		---
+		"""
 
 class Dispenser:
 	def __init__(self, filepath:str="./catalog.md", quote_cards: list = None):
@@ -27,7 +47,7 @@ class Dispenser:
 			self.quote_cards = self.load_quote_cards() 
 	def load_quote_cards(self,
 					  filepath: str ="./catalog.md"
-					  # tag: list = None, 	#필터링은 db에 넣고
+					  # tags: list = None, 	#필터링은 db에 넣고
 					  # author: str = None, 
 					  # view: int = 0,
 					  # favorite: bool = False,
@@ -53,17 +73,19 @@ class Dispenser:
 			blocks[b_idx]["idx"]=int(blocks[b_idx]["idx"])
 			blocks[b_idx]["tags"]=blocks[b_idx]["tags"].split(',')
 			blocks[b_idx]["tags"]=[b.strip() for b in blocks[b_idx]["tags"]]
+			blocks[b_idx]["view"]=int(blocks[b_idx]["view"])
+			blocks[b_idx]["favorite"]=bool(int(blocks[b_idx]["favorite"]))
+
 		# 5. QuoteCard를 만들어서 리스트에 추가한다
 			blocks[b_idx]=QuoteCard(
 				idx=blocks[b_idx]["idx"],
-				tag=blocks[b_idx]["tags"],
+				tags=blocks[b_idx]["tags"],
 				author=blocks[b_idx]["author"],
-				#view=blocks[b_idx]["view"],
-				#favorite=blocks[b_idx]["favorite"],
+				view=blocks[b_idx]["view"],
+				favorite=blocks[b_idx]["favorite"],
 				content={"kor":blocks[b_idx]["kor"],"eng":blocks[b_idx]["eng"]},
 				registered_by=blocks[b_idx]["registered_by"]
 				)
-		print(blocks)
 		# 6. 리스트를 반환한다
 		return blocks # QuoteCard들의 리스트
 
@@ -72,7 +94,7 @@ class Dispenser:
 
 	def search_quote_card(self, 	#이미 load된 덱에서 찾기
 					   idx: int =0
-					   # tag: list = None, 	#필터링은 db에 넣고
+					   # tags: list = None, 	#필터링은 db에 넣고
 					   # author: str = None, 
 					   # view: int = 0,
 					   # favorite: bool = False,

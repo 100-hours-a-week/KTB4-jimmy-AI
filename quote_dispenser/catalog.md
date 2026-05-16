@@ -5,7 +5,7 @@ eng: The greatest glory in living lies not in never falling, but in rising every
 author: 넬슨 만델라
 tags: 동기부여, 실패
 view: 0
-favorite: False
+favorite: 0
 registered_by: admin
 ---
 ---
@@ -15,7 +15,7 @@ eng:
 author: 공자
 tags: 동기부여, 꾸준함
 view: 2
-favorite: True
+favorite: 1
 registered_by: jimmy
 ---
 ---
@@ -25,6 +25,6 @@ eng: While there's life, there's hope.
 author: 키케로
 tags: 위로, 용기
 view: 1
-favorite: True
+favorite: 1
 registered_by: admin
 ---
