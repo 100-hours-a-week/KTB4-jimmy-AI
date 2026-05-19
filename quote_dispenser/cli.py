@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser(
                     epilog=
                     """
                     python3 cli.py   			:랜덤 명언카드 하나 뽑기
-                    python3 cli.py n 			:n개 뽑기                    
+                    python3 cli.py n 			:n개 뽑기
                     python3 cli.py --idx idx 	:인덱스로 명어카드 찾기
                     python3 cli.py --all 		:전체 카탈로그 보기
                     python3 cli.py --help    	:도움말 출력

@@ -25,7 +25,7 @@ class QuoteCard:	#명언 카드 하나
 		elif not self.content["eng"]:
 			lang_mode="kor"
 
-		with open("./template_user_default.md", "r") as template:
+		with open("./templates/template_user_default.md", "r") as template:
 			t=template.read()
 			if lang_mode=="kor":
 				return t.format(
