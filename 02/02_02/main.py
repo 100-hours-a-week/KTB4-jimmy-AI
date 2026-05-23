@@ -1,6 +1,9 @@
-def main():
-    print("Hello from 02!")
+from fastapi import FastAPI
+from pydantic import BaseModel
+from enum import Enum
 
+app = FastAPI()  #fastapi instance 만들기
 
-if __name__ == "__main__":
-    main()
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
