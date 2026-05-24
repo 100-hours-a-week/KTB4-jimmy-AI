@@ -1,9 +1,13 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
-from enum import Enum
+from routes import post_router, comment_router, ai_router
+from database import engine, Base
+import orm  # ORM 모델을 Base에 등록
 
-app = FastAPI()  #fastapi instance 만들기
+# 서버 시작 시 테이블 자동 생성
+Base.metadata.create_all(bind=engine)
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
+app = FastAPI()
+
+app.include_router(post_router.router)
+app.include_router(comment_router.router)
+app.include_router(ai_router.router)
