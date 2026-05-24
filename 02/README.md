@@ -1,15 +1,38 @@
 # FastAPI로 커뮤니티 서비스의 백엔드를 구현해보세요
 1. HTTP REST API 설계 및 구현
-2. AI 모델 서빙
+
+
+3. AI 모델 서빙
+
+
     ollama+httpx
+
+   
     연결 ai에게 부탁함
-3. 데이터베이스 적용하기
+
+   
+5. 데이터베이스 적용하기
+
+   
     mysql+dbeaver
-4. 구조 개선하기(예: Route - Controller - Model 패턴을 적용)
-5. (선택) HTML/CSS/S나 스트림릿으로 프론트엔드 만들기
+
+   
+7. 구조 개선하기(예: Route - Controller - Model 패턴을 적용)
+
+   
+    fastapi의 router 기능 활용
+
+
+9. (선택) HTML/CSS/S나 스트림릿으로 프론트엔드 만들기
+
+    
     ai에게 부탁함
 
+
 http://localhost:8501
+
+---
+
 게시글들 목록
 
     - 게시글 작성
