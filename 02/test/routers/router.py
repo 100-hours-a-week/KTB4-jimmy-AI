@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+import controllers.controller as ctrl
 
 router=APIRouter()
 
@@ -8,9 +9,12 @@ def read_root():
 
 @router.get("/posts")
 def read_posts():
-    return {"hello":"world"}
+    return ctrl.get_posts()
 
 @router.get("/posts/post/{post_id}")
 def read_post(post_id):
-    id=post_id
-    return {"hello":"world2"}
+    return ctrl.get_post(post_id)
+
+@router.patch("/posts/post/{post_id}/like")
+def like_post(post_id):
+    return ctrl.like_post(post_id)
