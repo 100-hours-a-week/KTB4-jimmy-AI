@@ -1,6 +1,13 @@
-def main():
-    print("Hello from 07!")
+from fastapi import FastAPI
+from pydantic import BaseModel
+from rag import ask
+# fastapi
+app = FastAPI()
 
+class Query(BaseModel):
+    prompt: str
 
-if __name__ == "__main__":
-    main()
+@app.post("/query")
+def query(request: Query):
+
+    return {"answer": ask(request.prompt)}

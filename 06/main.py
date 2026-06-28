@@ -47,8 +47,6 @@ def query(request: Query):
     질문: {prompt}
     """
 
-    #print(context)
-
     # 마지막 gemini에게 질의
     answer = client.models.generate_content(
         model="gemini-2.5-flash", 
