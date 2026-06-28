@@ -10,6 +10,7 @@ dependencies = [
     "langchain-chroma>=1.1.0",
     "langchain-google-genai>=4.2.6",
     "langchain-text-splitters>=1.1.2",
+    "langsmith>=0.9.3",
     "python-dotenv>=1.2.2",
     "uvicorn>=0.49.0",
 ]
