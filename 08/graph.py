@@ -30,6 +30,7 @@ class State(TypedDict):
     answer: str
     fix_needed: bool
     what_to_fix: list[str] 
+    try_count: int
 
 def retrieve(state: State) -> dict:
     # state에서 question 꺼내서
@@ -104,17 +105,28 @@ def verify(state: State) ->dict:
     structured_model = llm.with_structured_output(verified)
 
     chain = (prompt_template | structured_model)
-    print(state["answer"])
+    print(f"{state.get("try_count", 0)+1}번쨰 시도: \n {state["answer"]}\n")
     answer = chain.invoke({"context": state["context"], "question": state["question"], "answer": state["answer"]})
     print(answer)
-    return {"fix_needed" : answer.fix_needed, "what_to_fix" : answer.what_to_fix}
+    return {"fix_needed" : answer.fix_needed, 
+            "what_to_fix" : answer.what_to_fix, 
+            "try_count": state.get("try_count", 0)+1
+            }
 
-def route_by_fix(state: State) -> Literal["generate", "end"]:
-	if state["fix_needed"]:
-		return "generate"
+limit=4
+def route_by_fix(state: State) -> Literal["final_answer", "generate"]:
+    if not state["fix_needed"] or state["try_count"] >= limit:
+        return "final_answer"
+    
+    elif state["fix_needed"]:
+        return "generate"
+    
+def final_answer(state: State) ->dict:
+    if state["fix_needed"]:
+        return {"answer" : f"limit:{state["try_count"]} 내에 적합한 답변 도출 불가능 \n {state["answer"]} \n 발견된 문제점: {state["what_to_fix"]}"}
+    else:
+        return {"answer": state["answer"]}
 
-	elif not state["fix_needed"]:
-		return "end"
       
 # === 그래프 빌더 생성 === <-langchain의 chain과 동격
 graph = StateGraph(State) # 상태 스키마를 기반으로 그래프 빌더 생성
@@ -123,6 +135,7 @@ graph = StateGraph(State) # 상태 스키마를 기반으로 그래프 빌더 �
 graph.add_node("retrieve", retrieve) # 이름, 함수
 graph.add_node("generate", generate)
 graph.add_node("verify", verify)
+graph.add_node("final_answer", final_answer)
 
 
 # === 엣지 연결 ===
@@ -134,16 +147,18 @@ graph.add_conditional_edges(
 	route_by_fix,
 	{
 	"generate": "generate",
-	"end": END,
+	"final_answer": "final_answer",
 	},
 )
+graph.add_edge("final_answer", END) 
+
 
 # === 컴파일 ===
 app = graph.compile()    # 빌더를 실행 가능한 그래프로 변환
 
 # === 실행 ===
-#final_answer = app.invoke({"question": "파인만이 설명한 대전하 뭐야?"})["answer"]
-#print(final_answer)
+#end_answer = app.invoke({"question": "파인만이 설명한 강력이 뭐야?"})["answer"]
+#print(end_answer)
 
 # === 시각화용 그래프 구조 객체 가져오기 ===
 graph_view = app.get_graph()
