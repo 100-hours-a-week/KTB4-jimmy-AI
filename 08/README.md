@@ -4,7 +4,9 @@
 
 7주차 langchain을 LangGraph로 마이그레이션했다. 
 langgraph의 노드 안에 langchain에서 쓰던 langchain을 그대로 활용했다.
-    chain = (prompt_template | structured_model)
+```
+chain = (prompt_template | structured_model)
+```
 원래 이렇게 하는 건가?
 
 만들다 보니깐 LLM 출력으로 흐름을 조절할 필요성을 느꼈다. 어떻게 구현할까 고민하던 도중, 저번에 배훈 출력 구조화가 생각났다. Pydantic `with_structured_output()`으로 LLM 출력을 구조화했는데, 생각보다 잘 작동했다. 원래 이렇게 쓰는 건가? `answer["field"]`가 아니라 `answer.field`로 접근한다는 것도 배웠다.
@@ -13,6 +15,7 @@ langgraph의 노드 안에 langchain에서 쓰던 langchain을 그대로 활용�
 
 gemini 2.5 flash를 사용했는데, 나중에 내 언어모델을 만들면 그 둘을 선택해서 할 수 있도록 할 계획이다.
 더 좋은 모델을 verify 하는 데에, 또 evaluate.py에 사용하지 못했다는 한계점이 있다.
+evaluate.py는 토큰 없어서 실행 안해봤지만 연결 최신화해서 langsmith 인식은 해둬서 tracing은 성공했다.
 claude 새 api 키 받은걸로 할 수 있겠지만, 아깝기도 하고 무섭기도 해서.. 그리고 파인만 문서를 다 chromadb로 임포트하겠다는 계획이 있어서 그거에 우선 사용할 예정이다. 리필되는 월말에 한번 해야지.. 언제 리필되더라 확인해봐야겠다.
 
 아 맞다. 문서는 The Feynman Lectures on Physics 텍스트를 가져왔다. 6주차 과제부터 그거 썼었다.
@@ -20,8 +23,9 @@ claude 새 api 키 받은걸로 할 수 있겠지만, 아깝기도 하고 무섭
 https://www.feynmanlectures.caltech.edu/
 "I learned very early the difference between knowing the name of something and knowing something." 
 나는 아주 일찍 무언가의 이름을 아는 것과 그것을 아는 것 사이의 차이를 배웠다.- 리처드 파인만
+새벽감성으로...
 
- 복잡한 워크플로도 구현 못해봤고, tool들을 만들고 사용해보지 못했다. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
+복잡한 워크플로도 구현 못해봤고, tool들을 만들고 사용해보지 못했다. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
 ```
 (08) jimmywon@jjui-MacBookPro 08 % uv run graph.py
 
