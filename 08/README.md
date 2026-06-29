@@ -1,20 +1,22 @@
 # 8주차 과제 — LangGraph AI Agent
 
 ## 회고
-graph TD;
-        __start__([<p>__start__</p>]):::first
-        retrieve(retrieve)
-        generate(generate)
-        verify(verify)
-        __end__([<p>__end__</p>]):::last
-        __start__ --> retrieve;
-        generate --> verify;
-        retrieve --> generate;
-        verify -. &nbsp;end&nbsp; .-> __end__;
-        verify -.-> generate;
-        classDef default fill:#f2f0ff,line-height:1.2
-        classDef first fill-opacity:0
-        classDef last fill:#bfb6fc
+```
+graph TD
+    __start__((__start__)):::first
+    retrieve(retrieve)
+    generate(generate)
+    verify(verify)
+    __end__((__end__)):::last
+    __start__ --> retrieve
+    retrieve --> generate
+    generate --> verify
+    verify -. end .-> __end__
+    verify -.-> generate
+    classDef default fill:#f2f0ff,line-height:1.2
+    classDef first fill-opacity:0
+    classDef last fill:#bfb6fc
+```
 
 7주차 langchain을 LangGraph로 마이그레이션했다. 
 langgraph의 노드 안에 langchain에서 쓰던 langchain을 그대로 활용했다.
