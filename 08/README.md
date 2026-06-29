@@ -1,7 +1,7 @@
 # 8주차 과제 — LangGraph AI Agent
 
 ## 회고
-```
+```mermaid
 graph TD
     __start__((__start__)):::first
     retrieve(retrieve)
