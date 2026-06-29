@@ -144,3 +144,10 @@ app = graph.compile()    # 빌더를 실행 가능한 그래프로 변환
 # === 실행 ===
 #final_answer = app.invoke({"question": "파인만이 설명한 대전하 뭐야?"})["answer"]
 #print(final_answer)
+
+# === 시각화용 그래프 구조 객체 가져오기 ===
+graph_view = app.get_graph()
+
+# === 형식 1: Mermaid 텍스트 출력 ===
+mermaid_text = graph_view.draw_mermaid()
+print(mermaid_text)

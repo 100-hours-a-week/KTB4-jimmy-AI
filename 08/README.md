@@ -1,6 +1,20 @@
 # 8주차 과제 — LangGraph AI Agent
 
 ## 회고
+graph TD;
+        __start__([<p>__start__</p>]):::first
+        retrieve(retrieve)
+        generate(generate)
+        verify(verify)
+        __end__([<p>__end__</p>]):::last
+        __start__ --> retrieve;
+        generate --> verify;
+        retrieve --> generate;
+        verify -. &nbsp;end&nbsp; .-> __end__;
+        verify -.-> generate;
+        classDef default fill:#f2f0ff,line-height:1.2
+        classDef first fill-opacity:0
+        classDef last fill:#bfb6fc
 
 7주차 langchain을 LangGraph로 마이그레이션했다. 
 langgraph의 노드 안에 langchain에서 쓰던 langchain을 그대로 활용했다.
@@ -23,6 +37,7 @@ claude 새 api 키 받은걸로 할 수 있겠지만, 아깝기도 하고 무섭
 https://www.feynmanlectures.caltech.edu/
 "I learned very early the difference between knowing the name of something and knowing something." 
 나는 아주 일찍 무언가의 이름을 아는 것과 그것을 아는 것 사이의 차이를 배웠다.- 리처드 파인만
+
 새벽감성으로...
 
 복잡한 워크플로도 구현 못해봤고, tool들을 만들고 사용해보지 못했다. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
