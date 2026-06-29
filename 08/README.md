@@ -7,12 +7,14 @@ graph TD
     retrieve(retrieve)
     generate(generate)
     verify(verify)
+    final_answer(final_answer)
     E((end)):::last
     S --> retrieve
     retrieve --> generate
     generate --> verify
-    verify -. end .-> E
+    verify -.-> final_answer
     verify -.-> generate
+    final_answer --> E
     classDef default fill:#f2f0ff,color:#111,line-height:1.2
     classDef first fill-opacity:0,color:#fff
     classDef last fill:#bfb6fc,color:#111
@@ -42,7 +44,9 @@ https://www.feynmanlectures.caltech.edu/
 
 새벽감성으로...
 
-복잡한 워크플로도 구현 못해봤고, tool들을 만들고 사용해보지 못했다. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
+복잡한 워크플로도 구현 못해봤고, tool들을 만들고 사용해보지 못했다. message 기능도 써보고 싶고. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
+
+count 기능 추가해서 이제 유저가 설정한 limit=4 넘으면 자동으로 루프 탈출하고 그 사유가 verify 통과가 아닌 limit 이라면, 별도의 프롬프트를 통해 모르겠다고 이실직고한다.
 ```
 (08) jimmywon@jjui-MacBookPro 08 % uv run graph.py
 
