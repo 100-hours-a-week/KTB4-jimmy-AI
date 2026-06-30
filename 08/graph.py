@@ -63,20 +63,16 @@ class State(TypedDict):
 
 def retrieve(state: State) -> dict:
     if state.get("needs_more_context", False)==False:
-        # state에서 question 꺼내서
-        q=state["question"]
-        # vectorstore에서 검색하고
+        # state에서 question 꺼내서 vectorstore에서 검색하고
         retriever = vectorstore.as_retriever(search_kwargs={"k": state.get("top_k",3)})
-        docs = retriever.invoke(q)
+        docs = retriever.invoke(state["question"])
         # context 반환
         return {"context": docs, "needs_more_context": False ,"top_k": state.get("top_k",3)}
     
     elif state["needs_more_context"]==True:
-                # state에서 question 꺼내서
-        q=state["question"]
-        # vectorstore에서 검색하고
+        # state에서 question 꺼내서 vectorstore에서 검색하고
         retriever = vectorstore.as_retriever(search_kwargs={"k": state["top_k"]+1})
-        docs = retriever.invoke(q)
+        docs = retriever.invoke(state["question"])
         # context 반환
         return {"context": docs, "needs_more_context": False ,"top_k": state["top_k"]+1}
 

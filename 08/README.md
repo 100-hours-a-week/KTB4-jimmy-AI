@@ -30,14 +30,16 @@ chain = (prompt_template | structured_model)
 
 만들다 보니깐 LLM 출력으로 흐름을 조절할 필요성을 느꼈다. 어떻게 구현할까 고민하던 도중, 저번에 배운 출력 구조화가 생각났다. Pydantic `with_structured_output()`으로 LLM 출력을 구조화했는데, 생각보다 잘 작동했다. 원래 이렇게 쓰는 건가? `answer["field"]`가 아니라 `answer.field`로 접근한다는 것도 배웠다.
 
- 원래는 count 변수를 State에 추가해서, 0회면 그냥 넘어가고 일정 횟수 이상이면 LLM이 "난 모르겠다"고 이실직고하는 방식으로 구현하려 했는데, TypedDict로 State를 정의할 때, 첫 invoke에서 없는 키를 `state["key"]`로 접근하면 KeyError가 나는데.클로드쌤이 `state.get("key", default)`를 추천해줘서 임시방편으로 그렇게 구현했다. 나중에 count 기능 추가할 계획이다.(추가함)
- count 기능 추가해서 이제 유저가 설정한 limit=4 넘으면 자동으로 루프 탈출하고 그 사유가 verify 통과가 아닌 limit 이라면, 별도의 프롬프트를 통해 모르겠다고 이실직고한다. final_answer 노드를 따로 만들어야 했다
+원래는 count 변수를 State에 추가해서, 0회면 그냥 넘어가고 일정 횟수 이상이면 LLM이 "난 모르겠다"고 이실직고하는 방식으로 구현하려 했는데, TypedDict로 State를 정의할 때, 첫 invoke에서 없는 키를 `state["key"]`로 접근하면 KeyError가 나는데.클로드쌤이 `state.get("key", default)`를 추천해줘서 임시방편으로 그렇게 구현했다. 나중에 count 기능 추가할 계획이다.(추가함)
+count 기능 추가해서 이제 유저가 설정한 limit=4 넘으면 자동으로 루프 탈출하고 그 사유가 verify 통과가 아닌 limit 이라면, 별도의 프롬프트를 통해 모르겠다고 이실직고한다. final_answer 노드를 따로 만들어야 했다
 
 
 gemini 2.5 flash를 사용했는데, 나중에 내 언어모델을 만들면 그 둘을 선택해서 할 수 있도록 할 계획이다.
 더 좋은 모델을 verify 하는 데에, 또 evaluate.py에 사용하지 못했다는 한계점이 있다.
 evaluate.py는 토큰 없어서 실행 안해봤지만 연결 최신화해서 langsmith 인식은 해둬서 tracing은 성공했다.
 claude 새 api 키 받은걸로 할 수 있겠지만, 아깝기도 하고 무섭기도 해서.. 그리고 파인만 문서를 다 chromadb로 임포트하겠다는 계획이 있어서 그거에 우선 사용할 예정이다. 리필되는 월말에 한번 해야지.. 언제 리필되더라 확인해봐야겠다.
+
+모델 선택 기능을 추가했다. `model_map`에 gemini랑 claude를 딕셔너리로 등록해두고, FastAPI에서 `Literal["gemini", "claude"]`로 입력을 제한해서 State로 흘려보내면, generate/verify에서 `model_map[state["model"]]`로 꺼내 쓰는 방식이다. 임베딩은 이미 gemini로 해놨으니 바꿀 수 없고, LLM만 선택 가능하다. 나중에 개인 언어모델 만들면 그것도 넣어봐야겠다.
 
 아 맞다. 문서는 The Feynman Lectures on Physics 텍스트를 가져왔다. 6주차 과제부터 그거 썼었다.
 무려 리처드 파인만 교수님이 물리학 강의할 때 쓰시던 노트이다. 물리 교과서가 변하는 일은 자주 없기에, 현재에도 중요한 insight들을 많이 담고 있고, 놀랍도록 친절하다. 칼텍 사이트에 무료로 공개하셨는데, 물리(+영어+수학)를 취미로 공부하고 싶으면 충분히 도움받을 수 있다. 나도 다시 읽어야지..
@@ -53,9 +55,12 @@ fastapi에서 prompt, top_k, limit 정할 수 있게 했다. 나중에 프론트
 
 tool calling도 붙였다. generate 단계에서 LLM한테 DuckDuckGo, Wikipedia, ArXiv tool 목록을 `bind_tools()`로 넘겨주면, LLM이 스스로 어떤 tool을 쓸지 판단해서 `tool_calls`를 반환한다. 코드에서 그걸 받아서 직접 실행하고, 결과를 `Document`로 감싸서 RAG context에 합쳐 generate에서 활용하는 방식이다. LLM이 tool을 직접 실행하는 게 아니라 "이 tool 써달라"고 요청만 하고, 실제 실행은 코드가 한다는 게 핵심이다. tool_results를 딕셔너리로 저장해서 나중에 arxiv 결과만 따로 꺼낼 수 있게 구조 잡아뒀다.
 
-모델 선택 기능도 추가했다. `model_map`에 gemini랑 claude를 딕셔너리로 등록해두고, FastAPI에서 `Literal["gemini", "claude"]`로 입력을 제한해서 State로 흘려보내면, generate/verify에서 `model_map[state["model"]]`로 꺼내 쓰는 방식이다. 임베딩은 이미 gemini로 해놨으니 바꿀 수 없고, LLM만 선택 가능하다. 나중에 개인 언어모델 만들면 그것도 넣어봐야겠다.
+tool로 사용하려 했던 WikipediaQueryRun과 ArxivQueryRun이 제대로 작동하지 않아서 DuckDuckGoSearchRun 만으로 웹검색을 시도했다. WolframAlphaQueryRun로 수식 검증 tool도 활용해보고 싶다.
 
 복잡한 워크플로도 구현 못해봤고, message 기능도 써보고 싶고. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
+
+아래 예시가 인상깊다. 물리에서 강력은 두가지 의미가 있는데, 하나는 strong하다는 것이고, 두번째는 강한 핵력(strong interaction)이 있다. 파인만 문서를 인코딩하던 도중에 토큰을 다 써서 앞부분까지밖에 인코딩되지 않아서 뒤의 입자물리 부분이 ChromaDB에 없었는데, 나는 후자(강한 핵력)를 생각하면서 질문해서 RAG로 내용 찾지 못하더라도, 검색해서 알아낼 수 있는지 찾아보려 했지만 인터넷 검색을 동원해 강한 핵력에 대한 정의를 찾고, verify를 걸쳐 둘 중 전자(강하다)를 선택해서 답변을 하였다.
+내 의도대로 되지는 않았지만, 내가 생각한 도구들이 적절히 활용된 복잡한 예시였다.
 
 ```
       INFO   127.0.0.1:52695 - "GET /openapi.json        
