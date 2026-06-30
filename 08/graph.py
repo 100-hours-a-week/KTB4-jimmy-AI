@@ -15,14 +15,17 @@ from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 from typing import Literal
 
-from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
-from langchain_community.utilities import WikipediaAPIWrapper
-from langchain_community.tools.arxiv.tool import ArxivQueryRun
+from langchain_community.tools import DuckDuckGoSearchRun
+#from langchain_community.tools import WikipediaQueryRun
+#from langchain_community.utilities import WikipediaAPIWrapper
+#from langchain_community.tools.arxiv.tool import ArxivQueryRun
+
+from langchain_core.messages import SystemMessage, HumanMessage
 
 #bind tools
 tools = [DuckDuckGoSearchRun(), 
         #WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper()), #api 오류-일시적인가?
-        ArxivQueryRun()
+        #ArxivQueryRun()
         ]
 tool_map = {tool.name: tool for tool in tools} #이름으로 검색할 수 있게
 
@@ -50,7 +53,7 @@ class State(TypedDict):
     context: list[Document]
     answer: str
     fix_needed: bool #False
-    what_to_fix: list[str]  
+    what_to_fix: str 
     needs_more_context: bool #False
     top_k: int #3
     try_count: int #0
@@ -82,8 +85,16 @@ def generate(state: State) -> dict:
 
     # tool call
     llm_with_tools = llm.bind_tools(tools)  # tools 참조
-    response = llm_with_tools.invoke(state["question"])
-
+    if state.get("try_count", 0)==0:
+        response = llm_with_tools.invoke([
+            SystemMessage(content="제공된 context가 부족하면 검색 tool을 사용해."),
+            HumanMessage(content=f"{state["question"]}\n{state["context"]}")
+            ])
+    else:
+        response = llm_with_tools.invoke([
+            SystemMessage(content="제공된 context가 부족하면 검색 tool을 사용해."),
+            HumanMessage(content=f"{state["answer"]}\n{state["what_to_fix"]}")
+            ])
     tool_results={}
     for tool_call in response.tool_calls:
         tool_result = tool_map[tool_call["name"]].invoke(tool_call["args"])
@@ -94,8 +105,8 @@ def generate(state: State) -> dict:
 
     if state.get("fix_needed", False):
         prompt_template = ChatPromptTemplate.from_template("""
-        다음 문서를 참고해서 질문에 답해줘.
-
+        다음 문서를 참고하고, 문서에 없는 내용은 네 지식으로 보완해서 답해줘.
+                                                           
         문서: {context}
 
         질문: {question}
@@ -118,8 +129,7 @@ def generate(state: State) -> dict:
 
     else:
         prompt_template = ChatPromptTemplate.from_template("""
-        다음 문서를 참고해서 질문에 답해줘.
-
+        다음 문서를 참고하고, 문서에 없는 내용은 네 지식으로 보완해서 답해줘.
         문서: {context}
 
         질문: {question}
@@ -137,13 +147,14 @@ def generate(state: State) -> dict:
 
 class verified(BaseModel):
     fix_needed: bool = Field(description="answer가 수정이 필요한지 여부")
-    what_to_fix: list[str] = Field(description="고쳐야 하는 부분들")
+    what_to_fix: str = Field(description="고쳐야 하는 부분들")
     needs_more_context: bool = Field(description="수정할 때 추가 정보가 필요한지 여부")
 
 def verify(state: State) ->dict:
     prompt_template = ChatPromptTemplate.from_template("""
-    다음 문서를 참고해서 질문에 대한 답이 다음과 같이 나왔어. 이 내용이 맞는지 확인해줘.
-
+    다음 문서와 네가 알고 있는 지식을 종합해서 답이 맞는지 확인해줘.
+    문서에 근거가 없더라도 네 지식으로 판단해도 돼.
+                                                       
     문서: {context}
 
     질문: {question}
