@@ -1,7 +1,9 @@
 from dotenv import load_dotenv
 #from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
 from langchain_chroma import Chroma
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
@@ -28,8 +30,14 @@ tool_map = {tool.name: tool for tool in tools} #이름으로 검색할 수 있�
 #api key 가져오기
 load_dotenv()
 
+#모델 선택 기능을 위한 map 
+model_map = {
+    "gemini": ChatGoogleGenerativeAI(model="gemini-2.5-flash"),
+    "claude": ChatAnthropic(model="claude-haiku-4-5-20251001")
+    }
+
 #chromadb 불러오기
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001") # 이건 모델 선택 불가-이미 임베딩함
 vectorstore = Chroma(
     persist_directory="./chroma_db",
     embedding_function=embeddings,
@@ -48,6 +56,7 @@ class State(TypedDict):
     try_count: int #0
     limit: int #4
     #arxiv_references: list[str]
+    model: str #"gemini" or "claude"
 
 def retrieve(state: State) -> dict:
     if state.get("needs_more_context", False)==False:
@@ -69,7 +78,7 @@ def retrieve(state: State) -> dict:
         return {"context": docs, "needs_more_context": False ,"top_k": state["top_k"]+1}
 
 def generate(state: State) -> dict:
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+    llm = model_map[state["model"]]
 
     # tool call
     llm_with_tools = llm.bind_tools(tools)  # tools 참조
@@ -142,7 +151,7 @@ def verify(state: State) ->dict:
     답변: {answer}
     """)
 
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+    llm = model_map[state["model"]]
     structured_model = llm.with_structured_output(verified)
 
     chain = (prompt_template | structured_model)

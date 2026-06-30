@@ -22,7 +22,7 @@ graph TD
 ```
 
 7주차 langchain을 LangGraph로 마이그레이션했다. 
-langgraph의 노드 안에 langchain에서 쓰던 langchain을 그대로 활용했다.
+langgraph의 노드 안에 7주 과제에서 쓰던 langchain을 그대로 활용했다.
 ```
 chain = (prompt_template | structured_model)
 ```
@@ -31,7 +31,7 @@ chain = (prompt_template | structured_model)
 만들다 보니깐 LLM 출력으로 흐름을 조절할 필요성을 느꼈다. 어떻게 구현할까 고민하던 도중, 저번에 배운 출력 구조화가 생각났다. Pydantic `with_structured_output()`으로 LLM 출력을 구조화했는데, 생각보다 잘 작동했다. 원래 이렇게 쓰는 건가? `answer["field"]`가 아니라 `answer.field`로 접근한다는 것도 배웠다.
 
  원래는 count 변수를 State에 추가해서, 0회면 그냥 넘어가고 일정 횟수 이상이면 LLM이 "난 모르겠다"고 이실직고하는 방식으로 구현하려 했는데, TypedDict로 State를 정의할 때, 첫 invoke에서 없는 키를 `state["key"]`로 접근하면 KeyError가 나는데.클로드쌤이 `state.get("key", default)`를 추천해줘서 임시방편으로 그렇게 구현했다. 나중에 count 기능 추가할 계획이다.(추가함)
- count 기능 추가해서 이제 유저가 설정한 limit=4 넘으면 자동으로 루프 탈출하고 그 사유가 verify 통과가 아닌 limit 이라면, 별도의 프롬프트를 통해 모르겠다고 이실직고한다.final_answer 노드를 따로 만들어야 했다
+ count 기능 추가해서 이제 유저가 설정한 limit=4 넘으면 자동으로 루프 탈출하고 그 사유가 verify 통과가 아닌 limit 이라면, 별도의 프롬프트를 통해 모르겠다고 이실직고한다. final_answer 노드를 따로 만들어야 했다
 
 
 gemini 2.5 flash를 사용했는데, 나중에 내 언어모델을 만들면 그 둘을 선택해서 할 수 있도록 할 계획이다.
@@ -47,11 +47,13 @@ https://www.feynmanlectures.caltech.edu/
 
 새벽감성으로...
 
-한 가지 더. 원래 verify에서 fix 판단하면 바로 generate로 돌아갔는데, 생각해보니 같은 모델이 틀린 답을 내고 같은 모델이 그걸 평가하는 구조라 근본적인 한계가 있다. 고친다고 해도 결국 같은 눈으로 보는 거니까. 그래도 검색해오는 문서라도 늘리면 판단 근거가 늘어나지 않을까 싶어서, verify에서 `needs_more_context`도 함께 판단하게 했다. 추가 정보가 필요하다고 판단하면 generate가 아니라 retrieve로 돌아가서 top_k를 1 늘려 재검색하는 방식이다. 답변 품질 문제인지 정보 부족 문제인지를 구분해서 라우팅하는 게 핵심인데, verify 프롬프트가 그 둘을 얼마나 정확히 구분해낼지는 솔직히 모르겠다. 어차피 같은 모델이 판단하는 거니까.
+한 가지 더. 원래 verify에서 fix 판단하면 바로 generate로 돌아갔는데, 생각해보니 같은 모델이 틀린 답을 내고 같은 모델이 그걸 평가하는 구조라 근본적인 한계가 있다. 고친다고 해도 결국 같은 눈으로 보는 거니까. 그래도 검색해오는 문서라도 늘리면 판단 근거가 늘어나지 않을까 싶어서, verify에서 `needs_more_context`도 함께 판단하게 했다. 추가 정보가 필요하다고 판단하면 generate가 아니라 retrieve로 돌아가서 top_k를 1 늘려 재검색하는 방식이다. 답변 품질 문제인지 정보 부족 문제인지를 구분해서 라우팅하는 게 핵심인데, 어차피 같은 모델이 판단하는 건데 verify 프롬프트가 그 둘을 얼마나 정확히 구분해낼지는 솔직히 모르겠다.
 
-fastapi에서 prompt, top_k, limit 정할 수 있게 했다. 나중에 프론트도 간이로 만들어보면 좋겠다. doc 괜찮긴 한데
+fastapi에서 prompt, top_k, limit 정할 수 있게 했다. 나중에 프론트도 간이로 만들어보면 좋겠다. doc 괜찮긴 한데..
 
-tool calling도 붙였다. generate 단계에서 LLM한테 DuckDuckGo, Wikipedia, ArXiv tool 목록을 `bind_tools()`로 넘겨주면, LLM이 스스로 어떤 tool을 쓸지 판단해서 `tool_calls`를 반환한다. 코드에서 그걸 받아서 직접 실행하고, 결과를 `Document`로 감싸서 RAG context에 합쳐 generate에 넘기는 방식이다. LLM이 tool을 직접 실행하는 게 아니라 "이 tool 써달라"고 요청만 하고, 실제 실행은 코드가 한다는 게 핵심이다. tool_results를 딕셔너리로 저장해서 나중에 arxiv 결과만 따로 꺼낼 수 있게 구조 잡아뒀다.
+tool calling도 붙였다. generate 단계에서 LLM한테 DuckDuckGo, Wikipedia, ArXiv tool 목록을 `bind_tools()`로 넘겨주면, LLM이 스스로 어떤 tool을 쓸지 판단해서 `tool_calls`를 반환한다. 코드에서 그걸 받아서 직접 실행하고, 결과를 `Document`로 감싸서 RAG context에 합쳐 generate에서 활용하는 방식이다. LLM이 tool을 직접 실행하는 게 아니라 "이 tool 써달라"고 요청만 하고, 실제 실행은 코드가 한다는 게 핵심이다. tool_results를 딕셔너리로 저장해서 나중에 arxiv 결과만 따로 꺼낼 수 있게 구조 잡아뒀다.
+
+모델 선택 기능도 추가했다. `model_map`에 gemini랑 claude를 딕셔너리로 등록해두고, FastAPI에서 `Literal["gemini", "claude"]`로 입력을 제한해서 State로 흘려보내면, generate/verify에서 `model_map[state["model"]]`로 꺼내 쓰는 방식이다. 임베딩은 이미 gemini로 해놨으니 바꿀 수 없고, LLM만 선택 가능하다. 나중에 개인 언어모델 만들면 그것도 넣어봐야겠다.
 
 복잡한 워크플로도 구현 못해봤고, message 기능도 써보고 싶고. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
 
@@ -127,10 +129,19 @@ uv run graph.py
 
 ```
 POST /query
-{"prompt": "파인만이 설명한 원자가 뭐야?"}
+{
+  "prompt": "파인만이 설명한 원자가 뭐야?",
+  "top_k": 3,
+  "limit": 4,
+  "model": "gemini"
+}
 
 → {"answer": "..."}
 ```
+
+- `model`: `"gemini"` (기본값) 또는 `"claude"`
+- `top_k`: 검색 문서 수 (기본값 3)
+- `limit`: 최대 루프 횟수 (기본값 4)
 
 ## 환경변수 (.env)
 
@@ -147,6 +158,7 @@ GOOGLE_API_KEY=...
 - `pydantic` — 구조화 출력 스키마
 - `fastapi` + `uvicorn` — REST API
 - `python-dotenv` — API 키 관리
+- `langchain-anthropic` — Claude LLM 연동
 - `langchain-community` — DuckDuckGoSearchRun, WikipediaQueryRun, ArxivQueryRun
 - `duckduckgo-search` — DuckDuckGo 검색 백엔드
 - `wikipedia` — Wikipedia API 백엔드
