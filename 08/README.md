@@ -51,7 +51,9 @@ https://www.feynmanlectures.caltech.edu/
 
 fastapi에서 prompt, top_k, limit 정할 수 있게 했다. 나중에 프론트도 간이로 만들어보면 좋겠다. doc 괜찮긴 한데
 
-복잡한 워크플로도 구현 못해봤고, tool들을 만들고 사용해보지 못했다. message 기능도 써보고 싶고. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
+tool calling도 붙였다. generate 단계에서 LLM한테 DuckDuckGo, Wikipedia, ArXiv tool 목록을 `bind_tools()`로 넘겨주면, LLM이 스스로 어떤 tool을 쓸지 판단해서 `tool_calls`를 반환한다. 코드에서 그걸 받아서 직접 실행하고, 결과를 `Document`로 감싸서 RAG context에 합쳐 generate에 넘기는 방식이다. LLM이 tool을 직접 실행하는 게 아니라 "이 tool 써달라"고 요청만 하고, 실제 실행은 코드가 한다는 게 핵심이다. tool_results를 딕셔너리로 저장해서 나중에 arxiv 결과만 따로 꺼낼 수 있게 구조 잡아뒀다.
+
+복잡한 워크플로도 구현 못해봤고, message 기능도 써보고 싶고. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
 
 ```
 (08) jimmywon@jjui-MacBookPro 08 % uv run graph.py
@@ -97,7 +99,7 @@ START → retrieve → generate → verify →─── fix_needed=False ──�
 ```
 
 - **retrieve**: 질문을 벡터 검색해 관련 문서 반환 (기본 top_k=3). `needs_more_context=True`로 재진입 시 top_k를 1 늘려 재검색
-- **generate**: 문서 + 질문으로 답변 생성. fix 브랜치에서는 `what_to_fix`도 프롬프트에 반영
+- **generate**: `bind_tools()`로 LLM에 tool 목록 전달 → LLM이 DuckDuckGo/Wikipedia/ArXiv 중 필요한 것 선택 → 결과를 Document로 변환해 RAG context에 합쳐 답변 생성. fix 브랜치에서는 `what_to_fix`도 프롬프트에 반영
 - **verify**: Pydantic 구조화 출력으로 `fix_needed`, `what_to_fix`, `needs_more_context` 판단
 - **route_by_fix**: verify 결과에 따라 3방향 분기 — `final_answer` / `generate` 재실행 / `retrieve` 재진입. `try_count >= limit(4)` 시 강제 종료
 
@@ -145,3 +147,7 @@ GOOGLE_API_KEY=...
 - `pydantic` — 구조화 출력 스키마
 - `fastapi` + `uvicorn` — REST API
 - `python-dotenv` — API 키 관리
+- `langchain-community` — DuckDuckGoSearchRun, WikipediaQueryRun, ArxivQueryRun
+- `duckduckgo-search` — DuckDuckGo 검색 백엔드
+- `wikipedia` — Wikipedia API 백엔드
+- `arxiv` — ArXiv API 백엔드

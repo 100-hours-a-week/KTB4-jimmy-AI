@@ -13,6 +13,15 @@ from langchain_core.documents import Document
 from pydantic import BaseModel, Field
 from typing import Literal
 
+from langchain_community.tools import DuckDuckGoSearchRun, WikipediaQueryRun
+from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.tools.arxiv.tool import ArxivQueryRun
+
+#bind tools
+tools = [DuckDuckGoSearchRun(), WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper()), ArxivQueryRun()]
+tool_map = {tool.name: tool for tool in tools} #이름으로 검색할 수 있게
+
+
 #api key 가져오기
 load_dotenv()
 
@@ -23,6 +32,7 @@ vectorstore = Chroma(
     embedding_function=embeddings,
     collection_name="feynman"
 )
+
 #LangGraph State 구성
 class State(TypedDict):
     question: str
@@ -34,6 +44,7 @@ class State(TypedDict):
     top_k: int #3
     try_count: int #0
     limit: int #4
+    #arxiv_references: list[str]
 
 def retrieve(state: State) -> dict:
     if state.get("needs_more_context", False)==False:
@@ -55,6 +66,17 @@ def retrieve(state: State) -> dict:
         return {"context": docs, "needs_more_context": False ,"top_k": state["top_k"]+1}
 
 def generate(state: State) -> dict:
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+
+    # tool call
+    llm_with_tools = llm.bind_tools(tools)  # tools 참조
+    response = llm_with_tools.invoke(state["question"])
+
+    tool_results={}
+    for tool_call in response.tool_calls:
+        tool_result = tool_map[tool_call["name"]].invoke(tool_call["args"])
+        tool_results[tool_call["name"]] = tool_result
+    tool_docs = [Document(page_content=result) for result in tool_results.values()]
 
     if state.get("fix_needed", False):
         prompt_template = ChatPromptTemplate.from_template("""
@@ -71,11 +93,10 @@ def generate(state: State) -> dict:
         고칠 부분: {what_to_fix}
         """)
 
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
         chain = (prompt_template | llm | StrOutputParser())
 
         answer = chain.invoke({
-            "context": state["context"], 
+            "context": state["context"]+tool_docs, 
             "question": state["question"], 
             "answer": state["answer"],
             "what_to_fix": state["what_to_fix"]
@@ -90,10 +111,11 @@ def generate(state: State) -> dict:
         질문: {question}
         """)
 
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
         chain = (prompt_template | llm | StrOutputParser())
 
-        answer = chain.invoke({"context": state["context"], "question": state["question"]})
+        answer = chain.invoke({"context": state["context"]+tool_docs,
+                                "question": state["question"]
+                                })
 
     
     return {"answer" : answer, "fix_needed" : False}
