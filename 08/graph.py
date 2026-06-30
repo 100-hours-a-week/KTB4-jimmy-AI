@@ -33,6 +33,7 @@ class State(TypedDict):
     needs_more_context: bool #False
     top_k: int #3
     try_count: int #0
+    limit: int #4
 
 def retrieve(state: State) -> dict:
     if state.get("needs_more_context", False)==False:
@@ -127,9 +128,9 @@ def verify(state: State) ->dict:
             "needs_more_context" : answer.needs_more_context
             }
 
-limit=4
+
 def route_by_fix(state: State) -> Literal["final_answer", "retrieve","generate"]:
-    if not state["fix_needed"] or state["try_count"] >= limit:
+    if not state["fix_needed"] or state["try_count"] >= state.get("limit",4):
         return "final_answer"
     
     elif state["fix_needed"] and state["needs_more_context"]:
