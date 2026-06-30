@@ -28,18 +28,30 @@ class State(TypedDict):
     question: str
     context: list[Document]
     answer: str
-    fix_needed: bool
-    what_to_fix: list[str] 
-    try_count: int
+    fix_needed: bool #False
+    what_to_fix: list[str]  
+    needs_more_context: bool #False
+    top_k: int #3
+    try_count: int #0
 
 def retrieve(state: State) -> dict:
-    # state에서 question 꺼내서
-    q=state["question"]
-    # vectorstore에서 검색하고
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
-    docs = retriever.invoke(q)
-    # context 반환
-    return {"context": docs}
+    if state.get("needs_more_context", False)==False:
+        # state에서 question 꺼내서
+        q=state["question"]
+        # vectorstore에서 검색하고
+        retriever = vectorstore.as_retriever(search_kwargs={"k": state.get("top_k",3)})
+        docs = retriever.invoke(q)
+        # context 반환
+        return {"context": docs, "needs_more_context": False ,"top_k": state.get("top_k",3)}
+    
+    elif state["needs_more_context"]==True:
+                # state에서 question 꺼내서
+        q=state["question"]
+        # vectorstore에서 검색하고
+        retriever = vectorstore.as_retriever(search_kwargs={"k": state["top_k"]+1})
+        docs = retriever.invoke(q)
+        # context 반환
+        return {"context": docs, "needs_more_context": False ,"top_k": state["top_k"]+1}
 
 def generate(state: State) -> dict:
 
@@ -87,8 +99,9 @@ def generate(state: State) -> dict:
 
 
 class verified(BaseModel):
-    fix_needed: bool = Field(description="answer가 수정이 필요한지")
-    what_to_fix: list[str] = Field(description="어떤 부분을 고쳐야 하는지")
+    fix_needed: bool = Field(description="answer가 수정이 필요한지 여부")
+    what_to_fix: list[str] = Field(description="고쳐야 하는 부분들")
+    needs_more_context: bool = Field(description="수정할 때 추가 정보가 필요한지 여부")
 
 def verify(state: State) ->dict:
     prompt_template = ChatPromptTemplate.from_template("""
@@ -110,15 +123,19 @@ def verify(state: State) ->dict:
     print(answer)
     return {"fix_needed" : answer.fix_needed, 
             "what_to_fix" : answer.what_to_fix, 
-            "try_count": state.get("try_count", 0)+1
+            "try_count" : state.get("try_count", 0)+1,
+            "needs_more_context" : answer.needs_more_context
             }
 
 limit=4
-def route_by_fix(state: State) -> Literal["final_answer", "generate"]:
+def route_by_fix(state: State) -> Literal["final_answer", "retrieve","generate"]:
     if not state["fix_needed"] or state["try_count"] >= limit:
         return "final_answer"
     
-    elif state["fix_needed"]:
+    elif state["fix_needed"] and state["needs_more_context"]:
+        return "retrieve"
+    
+    elif state["fix_needed"] and not state["needs_more_context"]:
         return "generate"
     
 def final_answer(state: State) ->dict:
@@ -148,6 +165,7 @@ graph.add_conditional_edges(
 	{
 	"generate": "generate",
 	"final_answer": "final_answer",
+    "retrieve": "retrieve"
 	},
 )
 graph.add_edge("final_answer", END) 

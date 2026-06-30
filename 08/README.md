@@ -14,6 +14,7 @@ graph TD
     generate --> verify
     verify -.-> final_answer
     verify -.-> generate
+    verify -.-> retrieve
     final_answer --> E
     classDef default fill:#f2f0ff,color:#111,line-height:1.2
     classDef first fill-opacity:0,color:#fff
@@ -78,7 +79,7 @@ fix_needed=False what_to_fix=[]
 │   └── feynman.txt       # 파인만 강의록
 ├── chroma_db/            # ChromaDB 영구 저장소 (06에서 복사)
 ├── ingest.py             # 인덱싱: 청킹 → 임베딩 → ChromaDB 저장
-├── graph.py              # LangGraph StateGraph: retrieve → generate → verify 루프
+├── graph.py              # LangGraph StateGraph: retrieve → generate → verify 루프 (needs_more_context 시 retrieve 재진입)
 ├── main.py               # FastAPI 래핑: POST /query
 └── .env                  # GOOGLE_API_KEY 등 (git 제외)
 ```
@@ -86,14 +87,15 @@ fix_needed=False what_to_fix=[]
 ## 그래프 구조
 
 ```
-START → retrieve → generate → verify → (fix_needed?) → generate (루프)
-                                     ↘ END
+START → retrieve → generate → verify →─── fix_needed=False ──→ final_answer → END
+                      ↑                ├── fix_needed=True, needs_more_context=False → generate (루프)
+                      └────────────────┘── fix_needed=True, needs_more_context=True  → retrieve (top_k+1)
 ```
 
-- **retrieve**: 질문을 벡터 검색해 관련 문서 3개 반환
-- **generate**: 문서 + 질문으로 답변 생성. fix 브랜치에서는 틀린 부분도 반영
-- **verify**: Pydantic 구조화 출력으로 `fix_needed`, `what_to_fix` 판단
-- **route_by_fix**: verify 결과에 따라 generate 재실행 또는 종료
+- **retrieve**: 질문을 벡터 검색해 관련 문서 반환 (기본 top_k=3). `needs_more_context=True`로 재진입 시 top_k를 1 늘려 재검색
+- **generate**: 문서 + 질문으로 답변 생성. fix 브랜치에서는 `what_to_fix`도 프롬프트에 반영
+- **verify**: Pydantic 구조화 출력으로 `fix_needed`, `what_to_fix`, `needs_more_context` 판단
+- **route_by_fix**: verify 결과에 따라 3방향 분기 — `final_answer` / `generate` 재실행 / `retrieve` 재진입. `try_count >= limit(4)` 시 강제 종료
 
 ## 07 LCEL vs 08 LangGraph 비교
 
