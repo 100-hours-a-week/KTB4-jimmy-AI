@@ -18,7 +18,10 @@ from langchain_community.utilities import WikipediaAPIWrapper
 from langchain_community.tools.arxiv.tool import ArxivQueryRun
 
 #bind tools
-tools = [DuckDuckGoSearchRun(), WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper()), ArxivQueryRun()]
+tools = [DuckDuckGoSearchRun(), 
+        #WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper()), #api 오류-일시적인가?
+        ArxivQueryRun()
+        ]
 tool_map = {tool.name: tool for tool in tools} #이름으로 검색할 수 있게
 
 
@@ -77,6 +80,8 @@ def generate(state: State) -> dict:
         tool_result = tool_map[tool_call["name"]].invoke(tool_call["args"])
         tool_results[tool_call["name"]] = tool_result
     tool_docs = [Document(page_content=result) for result in tool_results.values()]
+    print("사용한 도구들:\n")
+    print(tool_docs)
 
     if state.get("fix_needed", False):
         prompt_template = ChatPromptTemplate.from_template("""
@@ -202,8 +207,8 @@ app = graph.compile()    # 빌더를 실행 가능한 그래프로 변환
 #print(end_answer)
 
 # === 시각화용 그래프 구조 객체 가져오기 ===
-graph_view = app.get_graph()
+#graph_view = app.get_graph()
 
 # === 형식 1: Mermaid 텍스트 출력 ===
-mermaid_text = graph_view.draw_mermaid()
-print(mermaid_text)
+#mermaid_text = graph_view.draw_mermaid()
+#print(mermaid_text)
