@@ -27,6 +27,7 @@ langgraph의 노드 안에 7주 과제에서 쓰던 langchain을 그대로 활�
 chain = (prompt_template | structured_model)
 ```
 원래 이렇게 하는 건가?
+하다보니 좀 이상한 것 같아서 prompt template과 langchain을 사용하는 것에서 message로 바꿔봤다. 이게 더 나을진 모르겠지만 message 배웠는데 써봐야지.
 
 만들다 보니깐 LLM 출력으로 흐름을 조절할 필요성을 느꼈다. 어떻게 구현할까 고민하던 도중, 저번에 배운 출력 구조화가 생각났다. Pydantic `with_structured_output()`으로 LLM 출력을 구조화했는데, 생각보다 잘 작동했다. 원래 이렇게 쓰는 건가? `answer["field"]`가 아니라 `answer.field`로 접근한다는 것도 배웠다.
 

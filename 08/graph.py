@@ -4,9 +4,6 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_anthropic import ChatAnthropic
 from langchain_chroma import Chroma
 
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
 from langgraph.graph import StateGraph, START, END  
 
 from typing_extensions import TypedDict
@@ -20,7 +17,7 @@ from langchain_community.tools import DuckDuckGoSearchRun
 #from langchain_community.utilities import WikipediaAPIWrapper
 #from langchain_community.tools.arxiv.tool import ArxivQueryRun
 
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage
 
 #bind tools
 tools = [DuckDuckGoSearchRun(), 
@@ -77,66 +74,41 @@ def retrieve(state: State) -> dict:
         return {"context": docs, "needs_more_context": False ,"top_k": state["top_k"]+1}
 
 def generate(state: State) -> dict:
+    print("---"+str(state.get("try_count", 0)+1)+"번째 시도---")
     llm = model_map[state["model"]]
 
     # tool call
     llm_with_tools = llm.bind_tools(tools)  # tools 참조
-    if state.get("try_count", 0)==0:
-        response = llm_with_tools.invoke([
-            SystemMessage(content="제공된 context가 부족하면 검색 tool을 사용해."),
-            HumanMessage(content=f"{state["question"]}\n{state["context"]}")
-            ])
-    else:
-        response = llm_with_tools.invoke([
-            SystemMessage(content="제공된 context가 부족하면 검색 tool을 사용해."),
-            HumanMessage(content=f"{state["answer"]}\n{state["what_to_fix"]}")
-            ])
-    tool_results={}
+    response = llm_with_tools.invoke([ # 무슨 툴 쓰지?
+        SystemMessage(content="제공된 context가 부족하면 검색 tool을 사용해."),
+        HumanMessage(content=f"""
+            문서: {state['context']}
+            질문: {state['question']}
+            이전 답변: {state.get('answer', '')}
+            고칠 부분: {state.get('what_to_fix', '')}
+        """)
+        ])
+
+    # 하나씩 돌려가면서 툴 사용해서 결과 가져오기 in tool_results to ToolMessage
+    tool_results = {}
     for tool_call in response.tool_calls:
         tool_result = tool_map[tool_call["name"]].invoke(tool_call["args"])
         tool_results[tool_call["name"]] = tool_result
-    tool_docs = [Document(page_content=result) for result in tool_results.values()]
-    print("사용한 도구들:\n")
-    print(tool_docs)
 
-    if state.get("fix_needed", False):
-        prompt_template = ChatPromptTemplate.from_template("""
-        다음 문서를 참고하고, 문서에 없는 내용은 네 지식으로 보완해서 답해줘.
-                                                           
-        문서: {context}
+    messages = [
+        SystemMessage(content=f"""
+                        다음 문서를 참고하고, 문서에 없는 내용은 네 지식으로 보완해서 답해줘. 
+                        문서:{state["context"]}
+                        {f"고칠 부분: {state["what_to_fix"]}" if state.get('fix_needed') else ''}
+                    """),
+        HumanMessage(content=state["question"]),
+        response, #AI Message
+        *[ToolMessage(content=v, tool_call_id=tc["id"]) #리스트 언패킹 *
+            for tc, v in zip(response.tool_calls, tool_results.values())]
+    ]
+    answer = llm.invoke(messages).content
 
-        질문: {question}
-        
-        답변: {answer}
-                                                        
-        이 부분이 틀렸어. 다시 수정해줘. 
-                                                        
-        고칠 부분: {what_to_fix}
-        """)
-
-        chain = (prompt_template | llm | StrOutputParser())
-
-        answer = chain.invoke({
-            "context": state["context"]+tool_docs, 
-            "question": state["question"], 
-            "answer": state["answer"],
-            "what_to_fix": state["what_to_fix"]
-            })
-
-    else:
-        prompt_template = ChatPromptTemplate.from_template("""
-        다음 문서를 참고하고, 문서에 없는 내용은 네 지식으로 보완해서 답해줘.
-        문서: {context}
-
-        질문: {question}
-        """)
-
-        chain = (prompt_template | llm | StrOutputParser())
-
-        answer = chain.invoke({"context": state["context"]+tool_docs,
-                                "question": state["question"]
-                                })
-
+    print(answer)
     
     return {"answer" : answer, "fix_needed" : False}
 
@@ -147,24 +119,27 @@ class verified(BaseModel):
     needs_more_context: bool = Field(description="수정할 때 추가 정보가 필요한지 여부")
 
 def verify(state: State) ->dict:
-    prompt_template = ChatPromptTemplate.from_template("""
-    다음 문서와 네가 알고 있는 지식을 종합해서 답이 맞는지 확인해줘.
-    문서에 근거가 없더라도 네 지식으로 판단해도 돼.
-                                                       
-    문서: {context}
-
-    질문: {question}
-    
-    답변: {answer}
-    """)
+    print("---verify 단계 시작---")
 
     llm = model_map[state["model"]]
-    structured_model = llm.with_structured_output(verified)
 
-    chain = (prompt_template | structured_model)
-    print(f"{state.get("try_count", 0)+1}번쨰 시도: \n {state["answer"]}\n")
-    answer = chain.invoke({"context": state["context"], "question": state["question"], "answer": state["answer"]})
-    print(answer)
+    messages = [
+    SystemMessage(content=f"""
+        다음 문서와 네가 알고 있는 지식을 종합해서 답이 맞는지 확인해줘.
+        문서에 근거가 없더라도 네 지식으로 판단해도 돼.
+        문서: {state["context"]}
+    """),
+    HumanMessage(content=state["question"]),
+    AIMessage(content=state["answer"])
+    ]
+
+    structured_model = llm.with_structured_output(verified)
+    answer = structured_model.invoke(messages)
+
+    print("수정 필요한가: "+str(state["fix_needed"]))
+    print("고칠점: "+str(state.get("what_to_fix","")))
+
+
     return {"fix_needed" : answer.fix_needed, 
             "what_to_fix" : answer.what_to_fix, 
             "try_count" : state.get("try_count", 0)+1,
@@ -183,9 +158,14 @@ def route_by_fix(state: State) -> Literal["final_answer", "retrieve","generate"]
         return "generate"
     
 def final_answer(state: State) ->dict:
+    print("-----최종답변-----")
     if state["fix_needed"]:
-        return {"answer" : f"limit:{state["try_count"]} 내에 적합한 답변 도출 불가능 \n {state["answer"]} \n 발견된 문제점: {state["what_to_fix"]}"}
+        answer_f=f"limit:{state["try_count"]} 내에 적합한 답변 도출 불가능 \n {state["answer"]} \n 발견된 문제점: {state["what_to_fix"]}"
+        print("최종답변: "+answer_f)
+        return {"answer" : answer_f}
+
     else:
+        print("최종답변: "+state["answer"])
         return {"answer": state["answer"]}
 
       
