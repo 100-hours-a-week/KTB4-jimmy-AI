@@ -66,7 +66,7 @@ def retrieve(state: State) -> dict:
         # context 반환
         return {"context": docs, "needs_more_context": False ,"top_k": state.get("top_k",3)}
     
-    elif state["needs_more_context"]==True:
+    else:
         # state에서 question 꺼내서 vectorstore에서 검색하고
         retriever = vectorstore.as_retriever(search_kwargs={"k": state["top_k"]+1})
         docs = retriever.invoke(state["question"])
@@ -93,14 +93,15 @@ def generate(state: State) -> dict:
     max_tool_rounds = 3
     tool_rounds = 0
     while tool_response.tool_calls and tool_rounds < max_tool_rounds:
-        tool_results = {}
-        for tool_call in tool_response.tool_calls:
-            tool_results[tool_call["name"]] = tool_map[tool_call["name"]].invoke(tool_call["args"])
-        
+
+        tool_results = [
+            tool_map[tc["name"]].invoke(tc["args"])
+            for tc in tool_response.tool_calls
+        ]
         messages += [
             tool_response,
             *[ToolMessage(content=v, tool_call_id=tc["id"])
-            for tc, v in zip(tool_response.tool_calls, tool_results.values())]
+            for tc, v in zip(tool_response.tool_calls, tool_results)]
         ]
         tool_response = llm_with_tools.invoke(messages)
 
@@ -163,7 +164,7 @@ def route_by_fix(state: State) -> Literal["final_answer", "retrieve","generate"]
 def final_answer(state: State) ->dict:
     print("-----최종답변-----")
     if state["fix_needed"]:
-        answer_f=f"limit:{state["try_count"]} 내에 적합한 답변 도출 불가능 \n {state["answer"]} \n 발견된 문제점: {state["what_to_fix"]}"
+        answer_f=f"limit:{state['try_count']} 내에 적합한 답변 도출 불가능 \n {state['answer']} \n 발견된 문제점: {state['what_to_fix']}"
         print("최종답변: "+answer_f)
         return {"answer" : answer_f}
 
