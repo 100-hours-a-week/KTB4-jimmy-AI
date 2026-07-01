@@ -41,6 +41,9 @@ evaluate.py는 토큰 없어서 실행 안해봤지만 연결 최신화해서 la
 claude 새 api 키 받은걸로 할 수 있겠지만, 아깝기도 하고 무섭기도 해서.. 그리고 파인만 문서를 다 chromadb로 임포트하겠다는 계획이 있어서 그거에 우선 사용할 예정이다. 리필되는 월말에 한번 해야지.. 언제 리필되더라 확인해봐야겠다.
 
 모델 선택 기능을 추가했다. `model_map`에 gemini랑 claude를 딕셔너리로 등록해두고, FastAPI에서 `Literal["gemini", "claude"]`로 입력을 제한해서 State로 흘려보내면, generate/verify에서 `model_map[state["model"]]`로 꺼내 쓰는 방식이다. 임베딩은 이미 gemini로 해놨으니 바꿀 수 없고, LLM만 선택 가능하다. 나중에 개인 언어모델 만들면 그것도 넣어봐야겠다.
+기본적으로는 fastapi에서 선택할 수 있게 했고,
+def invoke_with_fallback(state, messages, use_tools=False, structured=None):
+로 우선 gemini를 쓰고, 안되면 claude로 바꾸는(vice versa) 기능을 추가했다.
 
 아 맞다. 문서는 The Feynman Lectures on Physics 텍스트를 가져왔다. 6주차 과제부터 그거 썼었다.
 무려 리처드 파인만 교수님이 물리학 강의할 때 쓰시던 노트이다. 물리 교과서가 변하는 일은 자주 없기에, 현재에도 중요한 insight들을 많이 담고 있고, 놀랍도록 친절하다. 칼텍 사이트에 무료로 공개하셨는데, 물리(+영어+수학)를 취미로 공부하고 싶으면 충분히 도움받을 수 있다. 나도 다시 읽어야지..

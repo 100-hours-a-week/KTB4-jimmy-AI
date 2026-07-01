@@ -19,6 +19,8 @@ from langchain_community.tools import DuckDuckGoSearchRun
 
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage
 
+from google.api_core.exceptions import ResourceExhausted
+
 #bind tools
 tools = [DuckDuckGoSearchRun(), 
         #WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper()), #api 오류-일시적인가?
@@ -36,6 +38,8 @@ model_map = {
     "claude": ChatAnthropic(model="claude-haiku-4-5-20251001")
     }
 
+
+    
 #chromadb 불러오기
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001") # 이건 모델 선택 불가-이미 임베딩함
 vectorstore = Chroma(
@@ -58,6 +62,25 @@ class State(TypedDict):
     #arxiv_references: list[str]
     model: str #"gemini" or "claude"
 
+# 에러나면 서브 모델로
+def invoke_with_fallback(state, messages, use_tools=False, structured=None):
+    primary = model_map[state["model"]]
+    fallback = model_map["claude" if state["model"] == "gemini" else "gemini"]
+    
+    if use_tools:
+        primary = primary.bind_tools(tools)
+        fallback = fallback.bind_tools(tools)
+    
+    if structured:
+        primary = primary.with_structured_output(structured)
+        fallback = fallback.with_structured_output(structured)
+    
+    try:
+        return primary.invoke(messages)
+    except ResourceExhausted:
+        return fallback.invoke(messages)
+    
+    
 def retrieve(state: State) -> dict:
     if state.get("needs_more_context", False)==False:
         # state에서 question 꺼내서 vectorstore에서 검색하고
@@ -75,10 +98,7 @@ def retrieve(state: State) -> dict:
 
 def generate(state: State) -> dict:
     print("---"+str(state.get("try_count", 0)+1)+"번째 시도---")
-    llm = model_map[state["model"]]
 
-    # tool call
-    llm_with_tools = llm.bind_tools(tools)  # tools 참조
     messages = [
         SystemMessage(content=f"""
             다음 문서를 참고해서 답해줘. 문서에 없는 내용은 검색 tool을 사용해.
@@ -88,7 +108,7 @@ def generate(state: State) -> dict:
         HumanMessage(content=state["question"])
     ]
 
-    tool_response = llm_with_tools.invoke(messages)
+    tool_response = invoke_with_fallback(state, messages, True)
 
     max_tool_rounds = 3
     tool_rounds = 0
@@ -103,7 +123,7 @@ def generate(state: State) -> dict:
             *[ToolMessage(content=v, tool_call_id=tc["id"])
             for tc, v in zip(tool_response.tool_calls, tool_results)]
         ]
-        tool_response = llm_with_tools.invoke(messages)
+        tool_response = invoke_with_fallback(state, messages, True)
 
         tool_rounds += 1
 
@@ -125,8 +145,6 @@ class verified(BaseModel):
 def verify(state: State) ->dict:
     print("---verify 단계 시작---")
 
-    llm = model_map[state["model"]]
-
     messages = [
     SystemMessage(content=f"""
         다음 문서와 네가 알고 있는 지식을 종합해서 답이 맞는지 확인해줘.
@@ -137,9 +155,8 @@ def verify(state: State) ->dict:
     AIMessage(content=state["answer"])
     ]
 
-    structured_model = llm.with_structured_output(verified)
-    answer = structured_model.invoke(messages)
-
+    answer = invoke_with_fallback(state, messages, structured=verified)
+   
     print("수정 필요한가: "+str(state["fix_needed"]))
     print("고칠점: "+str(state.get("what_to_fix","")))
 
