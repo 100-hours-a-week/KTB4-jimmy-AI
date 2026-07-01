@@ -48,17 +48,15 @@ https://www.feynmanlectures.caltech.edu/
 "I learned very early the difference between knowing the name of something and knowing something." 
 나는 아주 일찍 무언가의 이름을 아는 것과 그것을 아는 것 사이의 차이를 배웠다.- 리처드 파인만
 
-새벽감성으로...
-
-한 가지 더. 원래 verify에서 fix 판단하면 바로 generate로 돌아갔는데, 생각해보니 같은 모델이 틀린 답을 내고 같은 모델이 그걸 평가하는 구조라 근본적인 한계가 있다. 고친다고 해도 결국 같은 눈으로 보는 거니까. 그래도 검색해오는 문서라도 늘리면 판단 근거가 늘어나지 않을까 싶어서, verify에서 `needs_more_context`도 함께 판단하게 했다. 추가 정보가 필요하다고 판단하면 generate가 아니라 retrieve로 돌아가서 top_k를 1 늘려 재검색하는 방식이다. 답변 품질 문제인지 정보 부족 문제인지를 구분해서 라우팅하는 게 핵심인데, 어차피 같은 모델이 판단하는 건데 verify 프롬프트가 그 둘을 얼마나 정확히 구분해낼지는 솔직히 모르겠다.
-
 fastapi에서 prompt, top_k, limit 정할 수 있게 했다. 나중에 프론트도 간이로 만들어보면 좋겠다. doc 괜찮긴 한데..
 
-tool calling도 붙였다. generate 단계에서 LLM한테 DuckDuckGo, Wikipedia, ArXiv tool 목록을 `bind_tools()`로 넘겨주면, LLM이 스스로 어떤 tool을 쓸지 판단해서 `tool_calls`를 반환한다. 코드에서 그걸 받아서 직접 실행하고, 결과를 `Document`로 감싸서 RAG context에 합쳐 generate에서 활용하는 방식이다. LLM이 tool을 직접 실행하는 게 아니라 "이 tool 써달라"고 요청만 하고, 실제 실행은 코드가 한다는 게 핵심이다. tool_results를 딕셔너리로 저장해서 나중에 arxiv 결과만 따로 꺼낼 수 있게 구조 잡아뒀다.
+tool calling도 붙였다. generate 단계에서 LLM한테 DuckDuckGo, Wikipedia, ArXiv tool 목록을 `bind_tools()`로 넘겨주면, LLM이 스스로 어떤 tool을 쓸지 판단해서 `tool_calls`를 반환한다. 코드에서 그걸 받아서 직접 실행하고, 결과를 `Document`로 감싸서 RAG context에 합쳐 generate에서 활용하는 방식이다.
 
 tool로 사용하려 했던 WikipediaQueryRun과 ArxivQueryRun이 제대로 작동하지 않아서 DuckDuckGoSearchRun 만으로 웹검색을 시도했다. WolframAlphaQueryRun로 수식 검증 tool도 활용해보고 싶다.
 
-복잡한 워크플로도 구현 못해봤고, message 기능도 써보고 싶고. 다만 기초적인 수준의 간단한 루프를 계획하고, 실제 돌아가고 verify 루프가 돌때마다 답변이 개선되는것을 시험적으로 확인해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
+한 가지 더. 원래 verify에서 fix 판단하면 바로 generate로 돌아갔는데, 생각해보니 같은 모델이 틀린 답을 내고 같은 모델이 그걸 평가하는 구조라 근본적인 한계가 있다. 고친다고 해도 결국 같은 눈으로 보는 거니까. 그래도 검색해오는 문서라도 늘리면 판단 근거가 늘어나지 않을까 싶어서, verify에서 `needs_more_context`도 함께 판단하게 했다. 추가 정보가 필요하다고 판단하면 generate가 아니라 retrieve로 돌아가서 top_k를 1 늘려 재검색하는 방식이다. 답변 품질 문제인지 정보 부족 문제인지를 구분해서 라우팅하는 게 핵심인데, 어차피 같은 모델이 판단하는 건데 verify 프롬프트가 그 둘을 얼마나 정확히 구분해낼지는 솔직히 모르겠다.
+
+복잡한 워크플로도 구현 못해봤다. 다만 기초적인 수준의 간단한 Evaluator-Optimizer Pattern 루프를 계획하고, evaluate 해 보았다. 나중에 어떤걸 구현할지 계획해놓은게 있는데, 이제 building block들이 다 모인 느낌이다.
 
 아래 예시가 인상깊다. 물리에서 강력은 두가지 의미가 있는데, 하나는 strong하다는 것이고, 두번째는 강한 핵력(strong interaction)이 있다. 파인만 문서를 인코딩하던 도중에 토큰을 다 써서 앞부분까지밖에 인코딩되지 않아서 뒤의 입자물리 부분이 ChromaDB에 없었는데, 나는 후자(강한 핵력)를 생각하면서 질문해서 RAG로 내용 찾지 못하더라도, 검색해서 알아낼 수 있는지 찾아보려 했지만 인터넷 검색을 동원해 강한 핵력에 대한 정의를 찾고, verify를 걸쳐 둘 중 전자(강하다)를 선택해서 답변을 하였다.
 내 의도대로 되지는 않았지만, 내가 생각한 도구들이 적절히 활용된 복잡한 예시였다.
