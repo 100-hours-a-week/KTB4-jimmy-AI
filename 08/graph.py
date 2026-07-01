@@ -79,35 +79,38 @@ def generate(state: State) -> dict:
 
     # tool call
     llm_with_tools = llm.bind_tools(tools)  # tools 참조
-    response = llm_with_tools.invoke([ # 무슨 툴 쓰지?
-        SystemMessage(content="제공된 context가 부족하면 검색 tool을 사용해."),
-        HumanMessage(content=f"""
-            문서: {state['context']}
-            질문: {state['question']}
-            이전 답변: {state.get('answer', '')}
-            고칠 부분: {state.get('what_to_fix', '')}
-        """)
-        ])
-
-    # 하나씩 돌려가면서 툴 사용해서 결과 가져오기 in tool_results to ToolMessage
-    tool_results = {}
-    for tool_call in response.tool_calls:
-        tool_result = tool_map[tool_call["name"]].invoke(tool_call["args"])
-        tool_results[tool_call["name"]] = tool_result
-
     messages = [
         SystemMessage(content=f"""
-                        다음 문서를 참고하고, 문서에 없는 내용은 네 지식으로 보완해서 답해줘. 
-                        문서:{state["context"]}
-                        {f"고칠 부분: {state["what_to_fix"]}" if state.get('fix_needed') else ''}
-                    """),
-        HumanMessage(content=state["question"]),
-        response, #AI Message
-        *[ToolMessage(content=v, tool_call_id=tc["id"]) #리스트 언패킹 *
-            for tc, v in zip(response.tool_calls, tool_results.values())]
+            다음 문서를 참고해서 답해줘. 문서에 없는 내용은 검색 tool을 사용해.
+            문서: {state['context']}
+            {f"고칠 부분: {state['what_to_fix']}" if state.get('fix_needed') else ''}
+        """),
+        HumanMessage(content=state["question"])
     ]
-    answer = llm.invoke(messages).content
 
+    tool_response = llm_with_tools.invoke(messages)
+
+    max_tool_rounds = 3
+    tool_rounds = 0
+    while tool_response.tool_calls and tool_rounds < max_tool_rounds:
+        tool_results = {}
+        for tool_call in tool_response.tool_calls:
+            tool_results[tool_call["name"]] = tool_map[tool_call["name"]].invoke(tool_call["args"])
+        
+        messages += [
+            tool_response,
+            *[ToolMessage(content=v, tool_call_id=tc["id"])
+            for tc, v in zip(tool_response.tool_calls, tool_results.values())]
+        ]
+        tool_response = llm_with_tools.invoke(messages)
+
+        tool_rounds += 1
+
+    #tool_response.context는 str이거나, list[dict]이거나, text attribute를 가진 list[object]일 수 있음
+    answer = tool_response.content if isinstance(tool_response.content, str) else "".join(
+        block.get("text", "") if isinstance(block, dict) else getattr(block, "text", "")
+        for block in tool_response.content
+    )    
     print(answer)
     
     return {"answer" : answer, "fix_needed" : False}
