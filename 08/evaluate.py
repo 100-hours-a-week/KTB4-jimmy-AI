@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()
 from langsmith import Client
-
+from pydantic import BaseModel, Field
 client = Client()
 
 examples = [
@@ -25,6 +25,8 @@ examples = [
 #)
 
 from graph import app
+class evaluated(BaseModel):
+    score: float = Field(ge=0, le=1)
 
 def graph_fn(inputs):
     return {"answer": app.invoke({"question": inputs["question"]})["answer"]}
@@ -32,7 +34,7 @@ from langsmith.evaluation import evaluate
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 def correctness_evaluator(run, example):
-    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash").with_structured_output(evaluated)
     question = example.inputs["question"]
     reference = example.outputs["answer"]
     prediction = run.outputs["answer"]
@@ -43,8 +45,9 @@ def correctness_evaluator(run, example):
 평가 대상 답변: {prediction}
 0.0(완전 틀림)~1.0(완전 정확) 사이 숫자만 답해줘."""
     
-    score = float(llm.invoke(prompt).content.strip())
-    return {"key": "correctness", "score": score}
+    score_result = llm.invoke(prompt).score
+    return {"key": "correctness", "score": score_result}
+
 
 results = evaluate(
     graph_fn,
