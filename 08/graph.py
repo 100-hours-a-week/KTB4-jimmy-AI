@@ -19,6 +19,8 @@ from langchain_community.tools import DuckDuckGoSearchRun
 #from langchain_community.tools import WikipediaQueryRun  #user_agent 설정해도 JSONDecodeError 재현됨 (search는 성공하지만 무관한 결과 반환 + 특정 페이지 fetch에서 크래시) — wikipedia 패키지 자체가 신뢰 못 할 수준. wikipedia-api 기반 커스텀 tool 필요 (나중에)
 #from langchain_community.utilities import WikipediaAPIWrapper
 #from langchain_community.tools.arxiv.tool import ArxivQueryRun
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
+from langchain_core.tools import StructuredTool
 
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage
 
@@ -34,10 +36,34 @@ from langchain_google_genai.chat_models import ChatGoogleGenerativeAIError
 #      컨텍스트 부족하면 retrieve로 / 아니면 generate로 돌아가 재시도
 # =========================================================
 
+
+from typing import NamedTuple
+
+class SiteConfig(NamedTuple): # 수정 불가능하게+3개 변수 딕셔너리에
+    domain: str
+    description: str
+
+ddg_sites_map = {
+    "wikipedia": SiteConfig("en.wikipedia.org", "위키피디아에서 검색"),
+    "arxiv": SiteConfig("arxiv.org", "arXiv 논문 검색"),
+}
+# 팩토리 — 딱 한 번만 정의
+def make_search_tool(name: str, config: SiteConfig):
+    def search(query: str) -> str:
+        return DuckDuckGoSearchAPIWrapper().run(f"site:{config.domain} {query}")
+    return StructuredTool.from_function(
+        func=search,
+        name=f"search_{name}",
+        description=config.description,
+    )
+# .items()로 name과 config를 같이 꺼냄
+site_tools = [make_search_tool(name, config) for name, config in ddg_sites_map.items()]
+
 #bind tools
-tools = [DuckDuckGoSearchRun(),
+tools = [DuckDuckGoSearchRun(description="일반 범용성 검색"),
         #WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper()), #user_agent 설정해도 JSONDecodeError — wikipedia 패키지 자체 신뢰성 문제, 커스텀 tool 필요
-        #ArxivQueryRun()  #arxiv.org 서버 자체 이슈 (2025-11 이후), langchain_community도 구버전 API 요구
+        #ArxivQueryRun(),  #arxiv.org 서버 자체 이슈 (2025-11 이후), langchain_community도 구버전 API 요구
+        *site_tools
         ]
 tool_map = {tool.name: tool for tool in tools} #이름으로 검색할 수 있게
 
@@ -84,20 +110,23 @@ def invoke_with_fallback(model, messages, use_tools=False, structured=None, sub_
     if models_tried is None:
         models_tried=[]
 
+    if model is None:    #다 돌아서 없어!                   
+        raise RuntimeError(f"tried {models_tried} but all failed")
+    
     primary_name = model
     secondary_name = next((i for i in iter(model_map.keys()) if primary_name!=i and i not in models_tried),None)
     primary = model_map[primary_name]
 
     if sub_model == True or primary_name in models_tried:
-        if secondary_name is None:
+        if secondary_name is None:  #다 돌아서 없어!
             raise RuntimeError(f"tried {models_tried} but all failed")
         else:
             return invoke_with_fallback(secondary_name, messages, use_tools=use_tools, structured=structured, sub_model=False, models_tried=models_tried)
 
-    elif use_tools:
+    if use_tools:
         primary = primary.bind_tools(tools)
     
-    elif structured:
+    if structured:
         primary = primary.with_structured_output(structured)
     
     try:
@@ -218,10 +247,10 @@ def route_by_fix(state: State) -> Literal["final_answer", "retrieve","generate"]
     if not state["fix_needed"] or state["try_count"] >= state.get("limit",4):
         return "final_answer"
 
-    elif state["fix_needed"] and state["needs_more_context"]:
+    elif state["needs_more_context"]:
         return "retrieve"
 
-    elif state["fix_needed"] and not state["needs_more_context"]:
+    else:
         return "generate"
 
 # 그래프의 종료 노드. limit에 걸려 강제 종료된 경우 실패 사유를 답변에 덧붙인다
